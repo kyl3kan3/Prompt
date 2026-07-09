@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mirror</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Screen 1: inventory + consent -->
+  <section id="consent-screen" class="screen">
+    <header>
+      <h1>Mirror</h1>
+      <p class="tagline">The most honest record of your mind is the one you left in your agent logs.</p>
+    </header>
+
+    <h2>What was found on this machine</h2>
+    <table id="inventory"></table>
+
+    <div class="dataflow">
+      <h2>What leaves this machine — exactly</h2>
+      <p>
+        Your archive files are read <strong>in place</strong> and are never uploaded anywhere.
+        To analyze them, <strong>sampled excerpts</strong> (at most 150 lines from each of at most
+        200 sessions) are sent to the Anthropic API under <strong>your own API key</strong>, after a
+        local redaction pass masks secrets and replaces emails/IPs with placeholders. Your key's
+        data-retention policy applies to those excerpts. Redaction catches structured secrets
+        (keys, tokens, connection strings) but cannot reliably catch secrets written as plain prose.
+        A local audit log records everything that was read and every redaction that fired.
+      </p>
+      <label>
+        <input type="checkbox" id="consent-check" />
+        I understand what leaves this machine, and I want the mirror.
+      </label>
+    </div>
+
+    <button id="begin" disabled>Begin</button>
+    <p id="start-error" class="error"></p>
+  </section>
+
+  <!-- Screen 2: the run -->
+  <section id="run-screen" class="screen hidden">
+    <nav id="phase-rail"></nav>
+
+    <main>
+      <div id="transcript"></div>
+      <div id="controls">
+        <form id="chat-form">
+          <input id="chat-input" type="text" placeholder="Answer, push back, or ask…" autocomplete="off" />
+          <button type="submit">Send</button>
+        </form>
+        <button id="approve" title="Approve the current gate and advance to the next phase">
+          Approve & continue →
+        </button>
+      </div>
+    </main>
+
+    <aside id="artifacts-pane">
+      <h2>Artifacts <button id="refresh-artifacts">↻</button></h2>
+      <div id="artifacts"></div>
+    </aside>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
