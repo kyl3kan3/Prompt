@@ -5,7 +5,9 @@ import { z } from "zod";
 import { readSession } from "../core/adapters/index.js";
 import { toInventory } from "../core/discovery.js";
 import { NAMED_SWEEPS, sweep, verifyReceipt } from "../core/grep.js";
+import { validateTarget, type ProposalStore } from "../core/proposals.js";
 import type { Redactor } from "../core/redact/index.js";
+import { readRunArtifacts } from "../core/runs.js";
 import { BUDGET, planSample } from "../core/sampling.js";
 import type { Source } from "../core/types.js";
 
@@ -16,6 +18,12 @@ export interface ToolContext {
   runDir: string;
   /** Mutable read-budget state, enforced across the whole run. */
   filesRead: Set<string>;
+  homeDir: string;
+  proposals: ProposalStore;
+  /** Previous run directory, if one exists — enables drift observations. */
+  prevRunDir: string | null;
+  /** Lets tools surface UI events (e.g. a new proposal) through the run. */
+  onEvent?: (event: { type: string }) => void;
 }
 
 const ARTIFACT_NAMES = ["mirror.md", "roadmap.md", "proposals.md"] as const;
@@ -140,6 +148,57 @@ export function createMirrorTools(ctx: ToolContext) {
           const file = path.join(ctx.runDir, name);
           await fs.writeFile(file, markdown);
           return ok(`Wrote ${file}`);
+        },
+      ),
+
+      tool(
+        "read_previous_run",
+        "Artifacts from the previous mirror run, if any. Use them to observe drift: what changed since last time, which roadmap items got receipts, which patterns persisted.",
+        {},
+        async () => {
+          if (!ctx.prevRunDir) return ok("No previous run found. This is the first mirror.");
+          const artifacts = await readRunArtifacts(ctx.prevRunDir);
+          if (Object.keys(artifacts).length === 0) return ok("Previous run left no readable artifacts.");
+          const parts = Object.entries(artifacts).map(
+            ([name, content]) => `=== ${name} (from ${path.basename(ctx.prevRunDir!)}) ===\n${content.slice(0, 12000)}`,
+          );
+          return ok(parts.join("\n\n"));
+        },
+      ),
+
+      tool(
+        "read_config",
+        "Read one of the user's agent config files (CLAUDE.md, AGENTS.md, or a file under ~/.claude/{skills,commands,agents}). Redacted. Read before proposing changes.",
+        { path: z.string().describe("Absolute path, e.g. ~ expanded") },
+        async ({ path: target }) => {
+          const invalid = validateTarget(ctx.homeDir, target);
+          if (invalid) return ok(`Cannot read: ${invalid}`);
+          try {
+            const content = await fs.readFile(path.resolve(target), "utf8");
+            return ok(ctx.redactor.clean(content).slice(0, 20000));
+          } catch {
+            return ok("(file does not exist yet)");
+          }
+        },
+      ),
+
+      tool(
+        "propose_change",
+        "Propose one config change for per-diff user approval. Provide the FULL new file content; the app computes the diff and shows it to the user. Never state or imply a change was applied — only the user can apply it, in the UI.",
+        {
+          title: z.string().describe("One line: what this change does and which pattern it kills"),
+          target_path: z.string().describe("Absolute path of the config file"),
+          new_content: z.string().describe("Complete proposed file content"),
+        },
+        async ({ title, target_path, new_content }) => {
+          const result = await ctx.proposals.propose(title, target_path, new_content);
+          if (typeof result === "string") return ok(`Proposal rejected: ${result}`);
+          ctx.onEvent?.({ type: "proposal" });
+          return ok(
+            `Recorded proposal ${result.id} (${result.kind} ${result.target}). ` +
+              `It is PENDING until the user approves it in the app.\n` +
+              ctx.redactor.clean(result.diff).slice(0, 4000),
+          );
         },
       ),
     ],

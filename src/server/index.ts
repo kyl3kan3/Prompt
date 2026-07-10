@@ -31,6 +31,41 @@ export function createServer(sources: Source[]) {
     res.json({ inventory: toInventory(sources), phases: PHASES });
   });
 
+  app.get("/api/run/status", (_req, res) => {
+    if (!run) {
+      res.json({ status: "idle" });
+      return;
+    }
+    res.json({ status: run.status, phase: run.phase, runDir: run.runDir });
+  });
+
+  app.get("/api/proposals", (_req, res) => {
+    const proposals = run ? run.proposals.list() : [];
+    // oldContent/newContent stay server-side; the diff is what the user reviews.
+    res.json({
+      proposals: proposals.map(({ oldContent, newContent, ...rest }) => rest),
+    });
+  });
+
+  app.post("/api/proposals/:id/:decision", async (req, res) => {
+    const { id, decision } = req.params;
+    if (decision !== "approve" && decision !== "reject") {
+      res.status(400).json({ error: "decision must be approve or reject" });
+      return;
+    }
+    if (!run) {
+      res.status(409).json({ error: "No run" });
+      return;
+    }
+    if (!run.proposals.get(id)) {
+      res.status(404).json({ error: `No such proposal: ${id}` });
+      return;
+    }
+    const proposal = await run.decideProposal(id, decision === "approve");
+    const { oldContent, newContent, ...rest } = proposal;
+    res.json({ proposal: rest });
+  });
+
   app.post("/api/run/start", (req, res) => {
     if (run && run.status === "running") {
       res.status(409).json({ error: "A run is already in progress" });

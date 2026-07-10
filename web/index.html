@@ -45,6 +45,7 @@
     <main>
       <div id="transcript"></div>
       <div id="controls">
+        <span id="status" class="status thinking">thinking…</span>
         <form id="chat-form">
           <input id="chat-input" type="text" placeholder="Answer, push back, or ask…" autocomplete="off" />
           <button type="submit">Send</button>
@@ -56,10 +57,21 @@
     </main>
 
     <aside id="artifacts-pane">
+      <div id="proposals-section" class="hidden">
+        <h2>Proposed changes</h2>
+        <div id="proposals"></div>
+      </div>
       <h2>Artifacts <button id="refresh-artifacts">↻</button></h2>
       <div id="artifacts"></div>
+      <button id="read-mirror" class="hidden">Read the mirror</button>
     </aside>
   </section>
+
+  <!-- The Mirror, read as an essay: single column, nothing else on screen. -->
+  <div id="mirror-overlay" class="hidden">
+    <button id="close-mirror">← back</button>
+    <article id="mirror-text"></article>
+  </div>
 
   <script src="app.js"></script>
 </body>

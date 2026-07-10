@@ -3,7 +3,9 @@ import { EventEmitter } from "node:events";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { ProposalStore, type Proposal } from "../core/proposals.js";
 import { Redactor } from "../core/redact/index.js";
+import { findPreviousRun } from "../core/runs.js";
 import type { Source } from "../core/types.js";
 import { SYSTEM_PROMPT } from "./prompt.js";
 import { createMirrorTools, type ToolContext } from "./tools.js";
@@ -11,7 +13,7 @@ import { createMirrorTools, type ToolContext } from "./tools.js";
 export const PHASES = ["Excavate", "Distill", "Interview", "The Mirror", "Leverage", "Residue"] as const;
 
 export interface RunEvent {
-  type: "assistant_text" | "tool_activity" | "phase" | "waiting" | "done" | "error";
+  type: "assistant_text" | "tool_activity" | "phase" | "waiting" | "proposal" | "done" | "error";
   text?: string;
   phase?: number;
 }
@@ -42,6 +44,9 @@ const MIRROR_TOOL_NAMES = [
   "append_evidence",
   "verify_receipt",
   "write_artifact",
+  "read_previous_run",
+  "read_config",
+  "propose_change",
 ].map((name) => `mcp__mirror__${name}`);
 
 /**
@@ -52,15 +57,34 @@ const MIRROR_TOOL_NAMES = [
  */
 export class MirrorRun extends EventEmitter {
   readonly runDir: string;
+  readonly proposals: ProposalStore;
   phase = 1;
   status: "running" | "done" | "error" = "running";
   private queue = new MessageQueue<string>();
   private redactor = new Redactor();
+  private baseDir: string;
+  private homeDir: string;
 
-  constructor(private sources: Source[], baseDir?: string) {
+  constructor(private sources: Source[], baseDir?: string, homeDir?: string) {
     super();
+    this.homeDir = homeDir ?? os.homedir();
+    this.baseDir = baseDir ?? path.join(this.homeDir, ".mirror");
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    this.runDir = path.join(baseDir ?? path.join(os.homedir(), ".mirror"), "runs", stamp);
+    this.runDir = path.join(this.baseDir, "runs", stamp);
+    this.proposals = new ProposalStore(this.homeDir, path.join(this.runDir, "backups"));
+  }
+
+  /** Apply or reject a Phase 6 proposal, and tell the agent what happened. */
+  async decideProposal(id: string, approve: boolean): Promise<Proposal> {
+    const proposal = approve ? await this.proposals.approve(id) : this.proposals.reject(id);
+    if (this.status === "running") {
+      this.queue.push(
+        `[residue] Proposal ${proposal.id} ("${proposal.title}") was ${proposal.status} by the user` +
+          (proposal.error ? ` (error: ${proposal.error})` : "") +
+          ". Do not re-propose rejected changes.",
+      );
+    }
+    return proposal;
   }
 
   /** Push a user chat message (interview answers, pushback, questions). */
@@ -106,6 +130,10 @@ export class MirrorRun extends EventEmitter {
       redactor: this.redactor,
       runDir: this.runDir,
       filesRead: new Set(),
+      homeDir: this.homeDir,
+      proposals: this.proposals,
+      prevRunDir: await findPreviousRun(this.baseDir, this.runDir),
+      onEvent: (event) => this.emit("event", event as RunEvent),
     };
 
     try {

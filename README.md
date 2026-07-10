@@ -32,6 +32,14 @@ one continuous agent session (Claude Agent SDK) across six phases:
   6 Residue    mirror.md, roadmap.md, proposed config diffs (never auto-applied)
 ```
 
+Phase 6 is live, not just prose: the model proposes changes to your agent configs
+(CLAUDE.md, AGENTS.md, custom skills/commands) through a `propose_change` tool; the app
+computes the diff, shows it in a review panel, and applies it only on your per-diff
+approval — with a backup of the old file written to the run directory first. Targets
+are restricted in code to config files under your home directory. On re-runs, the
+model reads the previous run's artifacts and reports drift: which patterns persisted,
+which roadmap items got receipts.
+
 The model has **no filesystem, shell, or network tools**. Its only access to your
 archives is a set of `mirror__*` tools that enforce the mining budget in code
 (150 lines per session, 200 sessions per run, 15-newest/10-oldest/20-middle sampling)
@@ -81,11 +89,10 @@ test/            vitest suite
 
 ## Roadmap
 
-- [ ] Drift tracking: diff evidence/mirror snapshots across runs ("in March you called
-      X temporary; it's July and you've logged 40 more hours on it")
-- [ ] Residue diffs applied via per-diff approval UI (currently written to
-      proposals.md only)
+- [x] Drift tracking: previous-run artifacts are handed to the model on re-runs
+- [x] Residue diffs applied via per-diff approval UI, with pre-apply backups
 - [ ] opencode/Cursor/aider adapters beyond the lenient default
 - [ ] Tauri desktop shell around the same core + UI
 - [ ] Local-model option for the mining phase (only redacted evidence reaches the
       frontier model)
+- [ ] Shareable (redacted, opt-in) mirror cards
