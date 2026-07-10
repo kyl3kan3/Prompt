@@ -24,8 +24,8 @@ h1 { font-size: 2.2rem; font-weight: normal; letter-spacing: 0.06em; }
 .tagline { color: var(--muted); font-style: italic; margin-top: 0.5rem; }
 h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 2rem 0 0.8rem; font-weight: normal; }
 
-table { width: 100%; border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 0.85rem; }
-td, th { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); text-align: left; }
+table { width: 100%; border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 0.85rem; font-variant-numeric: tabular-nums; display: block; overflow-x: auto; }
+td, th { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
 th { color: var(--muted); font-weight: normal; }
 
 .dataflow { background: var(--surface); border: 1px solid var(--border); padding: 1.2rem 1.4rem; margin-top: 2rem; }
@@ -62,6 +62,7 @@ button:disabled { border-color: var(--border); color: var(--muted); cursor: not-
   padding: 0.6rem 0.9rem; font: inherit;
 }
 #chat-form button, #approve { margin-top: 0; }
+#approve { white-space: nowrap; }
 
 #artifacts-pane { position: sticky; top: 2rem; align-self: start; max-height: 90vh; overflow-y: auto; }
 #artifacts details { margin-bottom: 0.6rem; border: 1px solid var(--border); }
