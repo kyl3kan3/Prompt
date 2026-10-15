@@ -96,3 +96,8 @@ test/            vitest suite
 - [ ] Local-model option for the mining phase (only redacted evidence reaches the
       frontier model)
 - [ ] Shareable (redacted, opt-in) mirror cards
+
+### Local browser security
+
+Use the printed loopback URL (127.0.0.1 or localhost). Mutations require an exact same-origin Origin header, and all requests must name the actual loopback listener host and port. Remote hostnames and cross-origin forms are rejected. CLI clients must explicitly include that Origin header. Run the security regression checks with `node --experimental-strip-types --test test/local-request.security.mjs` on Node 22.18+ or Node 24.
+After `npm ci --ignore-scripts` and `npm run build`, run `node --test test/local-http.security.mjs` to exercise the real local HTTP middleware without model calls.
