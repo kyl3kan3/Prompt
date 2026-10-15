@@ -1,4 +1,5 @@
 import express from "express";
+import { isAllowedLocalRequest } from "./local-request.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +13,17 @@ const ARTIFACTS = ["evidence.md", "mirror.md", "roadmap.md", "proposals.md", "au
 
 export function createServer(sources: Source[]) {
   const app = express();
+  app.use((req, res, next) => {
+    if (!isAllowedLocalRequest({
+      host: req.get("host"), origin: req.get("origin"), method: req.method,
+      localPort: req.socket.localPort, fetchSite: req.get("sec-fetch-site"),
+    })) {
+      res.status(403).json({ error: "Only same-origin requests to this local listener are allowed." });
+      return;
+    }
+    res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
+    next();
+  });
   app.use(express.json({ limit: "1mb" }));
   app.use(express.static(WEB_DIR));
 
